@@ -6,6 +6,7 @@ import urllib
 import threading
 
 from urlparse import urlparse
+from email import utils
 
 import dis
 
@@ -14,16 +15,18 @@ class write_lease:
 	def __init__(self, item, size):	# with lock
 		self.item = item
 		self.size = size
+
 		self.fd = None
 		self.bytes = 0
 		self.expires = ''
 		self.free_list = []
+
 		assert not item.is_busy()
 		item.rootnode.leases.append(item)
 
 	def reserve(self):
 		fsstat = os.statvfs(self.item.rootnode.path)
-		return (float(fsstat.f_bavail) / fsstat.f_blocks)*100
+		return (float(fsstat.f_bavail) / fsstat.f_blocks) * 100
 
 	def rsv_str(self):
 		return str(self.reserve())[:4]
@@ -43,6 +46,7 @@ class write_lease:
 		self.fd.flush()
 		if self.reserve() > disreserve:
 			return
+
 		assert self.bytes
 		r = self.item.rootnode
 		freed = 0
@@ -225,6 +229,7 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		f = open(item.path, 'rb')
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(f.name))
+		self.send_header("Last-Modified", utils.formatdate(os.stat(f.name).st_mtime, usegmt=True))
 		self.end_headers()
 		buf = 'not used'
 		while buf:
@@ -240,6 +245,7 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(item.path))
+		self.send_header("Last-Modified", utils.formatdate(os.stat(item.path).st_mtime, usegmt=True))
 
 	def do_OPTIONS(self):
 		self.send_response(200)

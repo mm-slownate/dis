@@ -1,0 +1,9 @@
+*.py[cod]
+
+# joe
+DEADJOE
+*~
+
+# mac
+.DS_Store
+
