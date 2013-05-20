@@ -131,6 +131,12 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		dis.insert(item)
 		return item
 
+	def oldest_item(self):	# with lock
+		if disroot.is_empty():
+			return None
+		item = disroot.oldest_node()
+		return self.touch_item(item)
+
 	def get_lease_append(self, item):	# with lock
 		if os.path.exists(item.path) and not os.path.isfile(item.path):
 			return None
@@ -194,7 +200,14 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def do_POST(self):
 		item = self.prefetch()
 		if item.is_root():
-			self.send_response(405)
+			with dislock:
+				item = self.oldest_item()
+			if not item or item.is_busy():
+				self.send_response(204)
+				return
+			self.send_response(200)
+			self.send_header("Content-Length", 0)
+			self.send_header("Location", "/%s" % item.itemname)
 			return
 		with dislock:
 			lease = self.get_lease_append(item)
