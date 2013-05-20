@@ -75,6 +75,9 @@ class rootnode(node):
 			return self.items[itemname]
 		return node(self, itemname)
 
+	def oldest_node(self):
+		return self.get_node(self.prev)
+
 
 def pop(item):
 	assert not item.is_empty()
