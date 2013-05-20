@@ -62,8 +62,9 @@ class write_lease:
 
 	def log_fields(self):
 		yield "%d byte lease" % self.bytes
-		yield "%dKB left" % (self.size/2**10)
 		yield "%s%% reserve" % self.rsv_str()
+		if self.size is not None:
+			yield "%dKB after this" % (self.size/2**10)
 		if self.free_list:
 			yield "freeing.."
 		for item in self.free_list:
@@ -121,21 +122,31 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return item
 
 	def get_lease_append(self, item):	# with lock
+		if os.path.exists(item.path) and not os.path.isfile(item.path):
+			return None
 		if item.is_busy():
+			return None
+		try:
+			mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
+		except:
 			return None
 		size = None
 		if "Content-length" in self.headers:
 			size = int(self.headers["Content-length"])
 		lease = write_lease(item, size)
-		mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
 		lease.fd = open(item.path, 'ab')
 		lease.renew()
 		return lease
 
 	def get_lease_truncate(self, item):	# with lock
+		if os.path.exists(item.path) and not os.path.isfile(item.path):
+			return None
 		if item.is_busy():
 			return None
-		mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
+		try:
+			mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
+		except:
+			return None
 		size = None
 		if "Content-length" in self.headers:
 			size = int(self.headers["Content-length"])
@@ -152,10 +163,11 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		if item.is_root():
 			self.send_response(405)
+			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
 			return
 		if not item.is_empty():
-			# delete failed, item busy, return "locked"
-			self.send_response(423)
+			# delete failed, item busy
+			self.send_response(409)
 			return
 		os.remove(item.path)
 		r = item.rootnode.path
@@ -176,7 +188,7 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		with dislock:
 			lease = self.get_lease_append(item)
 		if not lease:
-			self.send_response(423)
+			self.send_response(409)
 			return
 		self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
@@ -198,11 +210,12 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		item = self.prefetch()
 		if item.is_root():
 			self.send_response(405)
+			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
 			return
 		with dislock:
 			lease = self.get_lease_truncate(item)
 		if not lease:
-			self.send_response(423)
+			self.send_response(409)
 			return
 		self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
