@@ -100,7 +100,15 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		path = urllib.unquote(urlparse(self.path)[2]).lstrip('/')
 		if not path:
 			return disroot
-		return disroot.get_node(path)
+		cleanpath = []
+		for c in path.split('/'):
+			if not c or c == '.':
+				continue
+			if c == "..":
+				cleanpath and cleanpath.pop()
+			else:
+				cleanpath.append(c)
+		return disroot.get_node('/'.join(cleanpath))
 
 	def fetch_and_delete(self):	# with lock
 		item = self.prefetch()
