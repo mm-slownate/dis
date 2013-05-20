@@ -110,23 +110,25 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				cleanpath.append(c)
 		return disroot.get_node('/'.join(cleanpath))
 
-	def fetch_and_delete(self):	# with lock
-		item = self.prefetch()
-		if not item.is_root():
-			if item.is_empty():
-				return None
-			if not item.is_busy():
-				dis.pop(item)
-				del disroot.items[item.itemname]
+	def delete_item(self, item):	# with lock
+		assert not item.is_root()
+		if os.path.exists(item.path) and not os.path.isfile(item.path):
+			return None
+		if item.is_empty():
+			return None
+		if not item.is_busy():
+			dis.pop(item)
+			del disroot.items[item.itemname]
 		return item
 
-	def fetch(self):	# with lock
-		item = self.prefetch()
-		if not item.is_root():
-			if item.is_empty():
-				return None
-			dis.pop(item)
-			dis.insert(item)
+	def touch_item(self, item):	# with lock
+		assert not item.is_root()
+		if os.path.exists(item.path) and not os.path.isfile(item.path):
+			return None
+		if item.is_empty():
+			return None
+		dis.pop(item)
+		dis.insert(item)
 		return item
 
 	def get_lease_append(self, item):	# with lock
@@ -164,14 +166,15 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return lease
 
 	def do_DELETE(self):
-		with dislock:
-			item = self.fetch_and_delete()
-		if item is None:
-			self.send_response(404)
-			return
+		item = self.prefetch()
 		if item.is_root():
 			self.send_response(405)
 			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
+			return
+		with dislock:
+			item = self.delete_item(item)
+		if not item:
+			self.send_response(404)
 			return
 		if not item.is_empty():
 			# delete failed, item busy
@@ -242,9 +245,13 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.send_response(200)
 
 	def do_GET(self):
+		item = self.prefetch()
+		if item.is_root():
+			self.send_response(204)
+			return
 		with dislock:
-			item = self.fetch()
-		if item is None or item.is_root():
+			item = self.touch_item(item)
+		if not item:
 			self.send_response(404)
 			return
 		f = open(item.path, 'rb')
@@ -259,9 +266,13 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		f.close()
 
 	def do_HEAD(self):
+		item = self.prefetch()
+		if item.is_root():
+			self.send_response(204)
+			return
 		with dislock:
-			item = self.fetch()
-		if item is None or item.is_root():
+			item = self.touch_item(item)
+		if not item:
 			self.send_response(404)
 			return
 		self.send_response(200)
