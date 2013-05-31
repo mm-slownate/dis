@@ -200,6 +200,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			n = os.path.dirname(n)
 		self.send_response(200)
 		self.send_header("Content-Length", 0)
+		if "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 		self.end_headers()
 
 	def do_POST(self):
@@ -214,6 +216,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			self.send_response(200)
 			self.send_header("Content-Length", 0)
 			self.send_header("Location", "/%s" % item.itemname)
+			if "Origin" in self.headers:
+				self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 			self.end_headers()
 			return
 		with dislock:
@@ -238,6 +242,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			lease.close()
 		self.send_response(200)
 		self.send_header("Content-Length", 0)
+		if "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 		self.end_headers()
 
 	def do_PUT(self):
@@ -269,6 +275,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			lease.close()
 		self.send_response(200)
 		self.send_header("Content-Length", 0)
+		if "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 		self.end_headers()
 
 	def do_GET(self):
@@ -287,6 +295,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(f.name))
 		self.send_header("Last-Modified", utils.formatdate(os.stat(f.name).st_mtime, usegmt=True))
+		if "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 		self.end_headers()
 		buf = 'not used'
 		while buf:
@@ -309,12 +319,19 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(item.path))
 		self.send_header("Last-Modified", utils.formatdate(os.stat(item.path).st_mtime, usegmt=True))
+		if "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 		self.end_headers()
 
 	def do_OPTIONS(self):
 		self.send_response(200)
 		self.send_header("Allow", "OPTIONS, HEAD, GET, PUT, POST, DELETE")
 		self.send_header("Content-Length", '0')
+		if "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
+			self.send_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET, PUT, POST, DELETE")
+			if "Access-Control-Request-Headers" in self.headers:
+				self.send_header("Access-Control-Allow-Headers", self.headers["Access-Control-Request-Headers"])
 		self.end_headers()
 
 	def log_message(self, format, *args):
