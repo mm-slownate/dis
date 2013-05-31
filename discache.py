@@ -176,15 +176,18 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if item.is_root():
 			self.send_response(405)
 			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
+			self.end_headers()
 			return
 		with dislock:
 			item = self.delete_item(item)
 		if not item:
 			self.send_response(404)
+			self.end_headers()
 			return
 		if not item.is_empty():
 			# delete failed, item busy
 			self.send_response(409)
+			self.end_headers()
 			return
 		os.remove(item.path)
 		r = item.rootnode.path
@@ -196,6 +199,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				break
 			n = os.path.dirname(n)
 		self.send_response(200)
+		self.send_header("Content-Length", 0)
+		self.end_headers()
 
 	def do_POST(self):
 		item = self.prefetch()
@@ -204,15 +209,18 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				item = self.oldest_item()
 			if not item or item.is_busy():
 				self.send_response(204)
+				self.end_headers()
 				return
 			self.send_response(200)
 			self.send_header("Content-Length", 0)
 			self.send_header("Location", "/%s" % item.itemname)
+			self.end_headers()
 			return
 		with dislock:
 			lease = self.get_lease_append(item)
 		if not lease:
 			self.send_response(409)
+			self.end_headers()
 			return
 		self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
@@ -229,17 +237,21 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		with dislock:
 			lease.close()
 		self.send_response(200)
+		self.send_header("Content-Length", 0)
+		self.end_headers()
 
 	def do_PUT(self):
 		item = self.prefetch()
 		if item.is_root():
 			self.send_response(405)
 			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
+			self.end_headers()
 			return
 		with dislock:
 			lease = self.get_lease_truncate(item)
 		if not lease:
 			self.send_response(409)
+			self.end_headers()
 			return
 		self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
@@ -256,16 +268,20 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		with dislock:
 			lease.close()
 		self.send_response(200)
+		self.send_header("Content-Length", 0)
+		self.end_headers()
 
 	def do_GET(self):
 		item = self.prefetch()
 		if item.is_root():
 			self.send_response(204)
+			self.end_headers()
 			return
 		with dislock:
 			item = self.touch_item(item)
 		if not item:
 			self.send_response(404)
+			self.end_headers()
 			return
 		f = open(item.path, 'rb')
 		self.send_response(200)
@@ -282,15 +298,18 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		item = self.prefetch()
 		if item.is_root():
 			self.send_response(204)
+			self.end_headers()
 			return
 		with dislock:
 			item = self.touch_item(item)
 		if not item:
 			self.send_response(404)
+			self.end_headers()
 			return
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(item.path))
 		self.send_header("Last-Modified", utils.formatdate(os.stat(item.path).st_mtime, usegmt=True))
+		self.end_headers()
 
 	def do_OPTIONS(self):
 		self.send_response(200)
