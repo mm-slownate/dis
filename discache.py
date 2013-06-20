@@ -95,7 +95,7 @@ def mkdir_p_recursive(rootdir, itemdir):
 		os.mkdir(path)
 
 
-class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
+class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def prefetch(self):
 		path = urllib.unquote(urlparse(self.path)[2]).lstrip('/')
 		if not path:
@@ -226,7 +226,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			self.send_response(409)
 			self.end_headers()
 			return
-		self.log_message("%s", ", ".join(lease.log_fields()))
+		if lease.free_list or lease.size:
+			self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
 		while lease.bytes:
 			chunk = self.rfile.read(min(lease.bytes, 2**15))
@@ -236,7 +237,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if lease.size != 0 and not lease.bytes:
 				with dislock:
 					lease.renew()
-				self.log_message("%s", ", ".join(lease.log_fields()))
+				if lease.free_list or lease.size:
+					self.log_message("%s", ", ".join(lease.log_fields()))
 				lease.reclaim_files()
 		with dislock:
 			lease.close()
@@ -259,7 +261,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			self.send_response(409)
 			self.end_headers()
 			return
-		self.log_message("%s", ", ".join(lease.log_fields()))
+		if lease.free_list or lease.size:
+			self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
 		while lease.bytes:
 			chunk = self.rfile.read(min(lease.bytes, 2**15))
@@ -269,7 +272,8 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if lease.size != 0 and not lease.bytes:
 				with dislock:
 					lease.renew()
-				self.log_message("%s", ", ".join(lease.log_fields()))
+				if lease.free_list or lease.size:
+					self.log_message("%s", ", ".join(lease.log_fields()))
 				lease.reclaim_files()
 		with dislock:
 			lease.close()
@@ -335,11 +339,14 @@ class skel_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.end_headers()
 
 	def log_message(self, format, *args):
-		log_fd.write("%s [%s] %s\n" % (self.address_string(), self.log_date_time_string(), format % args))
+		who = self.address_string()
+		if "X-Forwarded-For" in self.headers:
+			who = self.headers["X-Forwarded-For"]
+		log_fd.write("%s [%s] %s\n" % (who, self.log_date_time_string(), format % args))
 		log_fd.flush()
 
 
-class skel_server(BaseHTTPServer.HTTPServer, SocketServer.ThreadingMixIn):
+class dis_server(BaseHTTPServer.HTTPServer, SocketServer.ThreadingMixIn):
 	def process_request(self, *args):
 		try:
 			BaseHTTPServer.HTTPServer.process_request(self, *args)
@@ -379,7 +386,7 @@ if __name__ == "__main__":
 	global dislock
 	dislock = threading.Lock()
 
-	server = skel_server(('', port), skel_handler)
+	server = dis_server(('', port), dis_handler)
 	server.serve_forever()
 
 
