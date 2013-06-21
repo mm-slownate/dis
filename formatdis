@@ -1,0 +1,38 @@
+#!/bin/bash
+
+PORT="8080"
+
+MOUNTPOINT="$HOME/disloopmount"
+LOOPFILE="$HOME/disloopfs"
+LOOPFILE_MB="64"
+
+
+if [ ! -d $MOUNTPOINT ]; then
+  echo "--- Creating mount point $MOUNTPOINT ---"
+  mkdir -p $MOUNTPOINT
+fi
+
+if [ ! -f $LOOPFILE ]; then
+  echo "--- Creating loopback file system at $LOOPFILE ---"
+  dd if=/dev/zero of=$LOOPFILE bs=1M count=$LOOPFILE_MB
+  echo ""
+  mkfs.ext4 -F $LOOPFILE
+fi
+
+if ! mount | grep -q "on $MOUNTPOINT type" ; then
+  echo "--- Mounting $MOUNTPOINT ---"
+  WHO=`whoami`
+  USER=`id -u $WHO`
+  GROUP=`id -g $WHO`
+  sudo mount -t ext4 $LOOPFILE $MOUNTPOINT
+  sudo chown $USER:$GROUP $MOUNTPOINT
+  mkdir -p $MOUNTPOINT/disroot
+fi
+
+if ! pgrep -fl "discache.py" | grep -q $MOUNTPOINT ; then
+  echo "--- Starting discache on port $PORT ---"
+  python discache.py $PORT $MOUNTPOINT/disroot &
+else
+  echo "discache already running on $MOUNTPOINT"
+fi
+
