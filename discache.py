@@ -351,7 +351,7 @@ class dis_server(BaseHTTPServer.HTTPServer, SocketServer.ThreadingMixIn):
 		try:
 			BaseHTTPServer.HTTPServer.process_request(self, *args)
 		except Exception, err:
-			log_fd.write("Exception %s\n" % err)
+			log_fd.write("Exception %r\n" % err)
 			log_fd.flush()
 			raise
 
