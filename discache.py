@@ -339,7 +339,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.end_headers()
 
 	def log_message(self, format, *args):
-		who = self.address_string()
+		who = str(self.client_address[0])
 		if "X-Forwarded-For" in self.headers:
 			who = self.headers["X-Forwarded-For"]
 		log_fd.write("%s [%s] %s\n" % (who, self.log_date_time_string(), format % args))
