@@ -62,7 +62,7 @@ class write_lease:
 	def log_fields(self):
 		yield "%d byte lease" % self.bytes
 		yield "%s%% reserve" % self.rsv_str()
-		if self.size is not None:
+		if not self.size is None:
 			yield "%dKB after this" % (self.size/2**10)
 		if self.free_list:
 			yield "freeing.."
@@ -94,20 +94,24 @@ def mkdir_p_recursive(rootdir, itemdir):
 		os.mkdir(path)
 
 
+def sanitize(path):
+	cleanpath = []
+	for c in path.split('/'):
+		if not c or c == '.':
+			continue
+		if c == "..":
+			cleanpath and cleanpath.pop()
+		else:
+			cleanpath.append(c)
+	return '/'.join(cleanpath)
+
+
 class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def prefetch(self):
 		path = urllib.unquote(urlparse(self.path)[2]).lstrip('/')
 		if not path:
 			return disroot
-		cleanpath = []
-		for c in path.split('/'):
-			if not c or c == '.':
-				continue
-			if c == "..":
-				cleanpath and cleanpath.pop()
-			else:
-				cleanpath.append(c)
-		return disroot.get_node('/'.join(cleanpath))
+		return disroot.get_node(sanitize(path))
 
 	def reclaim(self, lease):
 		if lease.free_list or lease.size:
