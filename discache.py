@@ -109,6 +109,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				cleanpath.append(c)
 		return disroot.get_node('/'.join(cleanpath))
 
+	def reclaim(self, lease):
+		if lease.free_list or lease.size:
+			self.log_message("%s", ", ".join(lease.log_fields()))
+		lease.reclaim_files()
+
 	def delete_item(self, item):	# with lock
 		assert not item.is_root()
 		if os.path.exists(item.path) and not os.path.isfile(item.path):
@@ -221,9 +226,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if not lease:
 			self.send_error(409)
 			return
-		if lease.free_list or lease.size:
-			self.log_message("%s", ", ".join(lease.log_fields()))
-		lease.reclaim_files()
+		self.reclaim()
 		while lease.bytes:
 			chunk = self.rfile.read(min(lease.bytes, 2**15))
 			if not chunk:
@@ -232,9 +235,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if lease.size != 0 and not lease.bytes:
 				with dislock:
 					lease.renew()
-				if lease.free_list or lease.size:
-					self.log_message("%s", ", ".join(lease.log_fields()))
-				lease.reclaim_files()
+				self.reclaim()
 		with dislock:
 			lease.close()
 		self.send_response(200)
@@ -255,9 +256,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if not lease:
 			self.send_error(409)
 			return
-		if lease.free_list or lease.size:
-			self.log_message("%s", ", ".join(lease.log_fields()))
-		lease.reclaim_files()
+		self.reclaim()
 		while lease.bytes:
 			chunk = self.rfile.read(min(lease.bytes, 2**15))
 			if not chunk:
@@ -266,9 +265,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if lease.size != 0 and not lease.bytes:
 				with dislock:
 					lease.renew()
-				if lease.free_list or lease.size:
-					self.log_message("%s", ", ".join(lease.log_fields()))
-				lease.reclaim_files()
+				self.reclaim()
 		with dislock:
 			lease.close()
 		self.send_response(200)
