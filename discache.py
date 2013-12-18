@@ -230,7 +230,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if not lease:
 			self.send_error(409)
 			return
-		self.reclaim()
+		self.reclaim(lease)
 		while lease.bytes:
 			chunk = self.rfile.read(min(lease.bytes, 2**15))
 			if not chunk:
@@ -239,7 +239,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if lease.size != 0 and not lease.bytes:
 				with dislock:
 					lease.renew()
-				self.reclaim()
+				self.reclaim(lease)
 		with dislock:
 			lease.close()
 		self.send_response(200)
@@ -260,7 +260,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if not lease:
 			self.send_error(409)
 			return
-		self.reclaim()
+		self.reclaim(lease)
 		while lease.bytes:
 			chunk = self.rfile.read(min(lease.bytes, 2**15))
 			if not chunk:
@@ -269,7 +269,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if lease.size != 0 and not lease.bytes:
 				with dislock:
 					lease.renew()
-				self.reclaim()
+				self.reclaim(lease)
 		with dislock:
 			lease.close()
 		self.send_response(200)
