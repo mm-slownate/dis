@@ -47,7 +47,6 @@ class write_lease:
 		if self.reserve() > disreserve:
 			return
 
-		assert self.bytes
 		r = self.item.rootnode
 		freed = 0
 		while freed < self.bytes:
