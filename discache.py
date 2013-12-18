@@ -145,7 +145,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		item = disroot.oldest_node()
 		return self.touch_item(item)
 
-	def get_lease_append(self, item):	# with lock
+	def get_lease_common(self, item):	# with lock
 		if os.path.exists(item.path) and not os.path.isfile(item.path):
 			return None
 		if item.is_busy():
@@ -158,25 +158,20 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if "Content-length" in self.headers:
 			size = int(self.headers["Content-length"])
 		lease = write_lease(item, size)
-		lease.fd = open(item.path, 'ab')
-		lease.renew()
+		return lease
+
+	def get_lease_append(self, item):	# with lock
+		lease = self.get_lease_common(item)
+		if lease:
+			lease.fd = open(item.path, 'ab')
+			lease.renew()
 		return lease
 
 	def get_lease_truncate(self, item):	# with lock
-		if os.path.exists(item.path) and not os.path.isfile(item.path):
-			return None
-		if item.is_busy():
-			return None
-		try:
-			mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
-		except:
-			return None
-		size = None
-		if "Content-length" in self.headers:
-			size = int(self.headers["Content-length"])
-		lease = write_lease(item, size)
-		lease.fd = open(item.path, 'wb')
-		lease.renew()
+		lease = self.get_lease_common(item)
+		if lease:
+			lease.fd = open(item.path, 'wb')
+			lease.renew()
 		return lease
 
 	def do_DELETE(self):
