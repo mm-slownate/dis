@@ -180,13 +180,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		with dislock:
 			item = self.delete_item(item)
 		if not item:
-			self.send_response(404)
-			self.end_headers()
+			self.send_error(404)
 			return
 		if not item.is_empty():
 			# delete failed, item busy
-			self.send_response(409)
-			self.end_headers()
+			self.send_error(409)
 			return
 		os.remove(item.path)
 		r = item.rootnode.path
@@ -209,8 +207,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			with dislock:
 				item = self.oldest_item()
 			if not item or item.is_busy():
-				self.send_response(204)
-				self.end_headers()
+				self.send_error(204)
 				return
 			self.send_response(200)
 			self.send_header("Content-Length", 0)
@@ -222,8 +219,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		with dislock:
 			lease = self.get_lease_append(item)
 		if not lease:
-			self.send_response(409)
-			self.end_headers()
+			self.send_error(409)
 			return
 		if lease.free_list or lease.size:
 			self.log_message("%s", ", ".join(lease.log_fields()))
@@ -257,8 +253,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		with dislock:
 			lease = self.get_lease_truncate(item)
 		if not lease:
-			self.send_response(409)
-			self.end_headers()
+			self.send_error(409)
 			return
 		if lease.free_list or lease.size:
 			self.log_message("%s", ", ".join(lease.log_fields()))
@@ -285,14 +280,12 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def do_GET(self):
 		item = self.prefetch()
 		if item.is_root():
-			self.send_response(204)
-			self.end_headers()
+			self.send_error(204)
 			return
 		with dislock:
 			item = self.touch_item(item)
 		if not item:
-			self.send_response(404)
-			self.end_headers()
+			self.send_error(404)
 			return
 		f = open(item.path, 'rb')
 		self.send_response(200)
@@ -310,14 +303,12 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def do_HEAD(self):
 		item = self.prefetch()
 		if item.is_root():
-			self.send_response(204)
-			self.end_headers()
+			self.send_error(204)
 			return
 		with dislock:
 			item = self.touch_item(item)
 		if not item:
-			self.send_response(404)
-			self.end_headers()
+			self.send_error(404)
 			return
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(item.path))
