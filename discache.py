@@ -107,6 +107,15 @@ def sanitize(path):
 
 
 class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
+	def urlpath(self):
+		try:
+			url = urlparse(self.path)[2]
+			path = urllib.unquote(url)
+			cleanpath = sanitize(path)
+		except:
+			cleanpath = None
+		return cleanpath
+
 	def prefetch(self):
 		path = urllib.unquote(urlparse(self.path)[2]).lstrip('/')
 		if not path:
@@ -274,35 +283,57 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.end_headers()
 
 	def do_GET(self):
-		item = self.prefetch()
+		urlpath = self.urlpath()
+		if urlpath is None:
+			self.send_error(400)
+			return
+		item = disroot.get_node(urlpath)
 		if item.is_root():
 			self.send_error(204)
 			return
-		with dislock:
-			item = self.touch_item(item)
+		try:
+			with dislock:
+				item = self.touch_item(item)
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		if not item:
 			self.send_error(404)
 			return
-		f = open(item.path, 'rb')
+		try:
+			f = open(item.path, 'rb')
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		self.send_response(200)
 		self.send_header("Content-Length", os.path.getsize(f.name))
 		self.send_header("Last-Modified", utils.formatdate(os.stat(f.name).st_mtime, usegmt=True))
 		if "Origin" in self.headers:
 			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 		self.end_headers()
-		buf = 'not used'
-		while buf:
-			buf = f.read(4096)
-			self.wfile.write(buf)
-		f.close()
+		try:
+			buf = 'not used'
+			while buf:
+				buf = f.read(4096)
+				self.wfile.write(buf)
+		finally:
+			f.close()
 
 	def do_HEAD(self):
-		item = self.prefetch()
+		urlpath = self.urlpath()
+		if urlpath is None:
+			self.send_error(400)
+			return
+		item = disroot.get_node(urlpath)
 		if item.is_root():
 			self.send_error(204)
 			return
-		with dislock:
-			item = self.touch_item(item)
+		try:
+			with dislock:
+				item = self.touch_item(item)
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		if not item:
 			self.send_error(404)
 			return
