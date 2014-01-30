@@ -116,12 +116,6 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			cleanpath = None
 		return cleanpath
 
-	def prefetch(self):
-		path = urllib.unquote(urlparse(self.path)[2]).lstrip('/')
-		if not path:
-			return disroot
-		return disroot.get_node(sanitize(path))
-
 	def reclaim(self, lease):
 		if lease.free_list or lease.size:
 			self.log_message("%s", ", ".join(lease.log_fields()))
@@ -163,11 +157,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
 		except:
 			return None
-		size = None
-		if "Content-length" in self.headers:
+		try:
 			size = int(self.headers["Content-length"])
-		lease = write_lease(item, size)
-		return lease
+		except:
+			size = None
+		return write_lease(item, size)
 
 	def get_lease_append(self, item):	# with lock
 		lease = self.get_lease_common(item)
@@ -184,14 +178,22 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return lease
 
 	def do_DELETE(self):
-		item = self.prefetch()
+		urlpath = self.urlpath()
+		if urlpath is None:
+			self.send_error(400)
+			return
+		item = disroot.get_node(urlpath)
 		if item.is_root():
 			self.send_response(405)
 			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
 			self.end_headers()
 			return
-		with dislock:
-			item = self.delete_item(item)
+		try:
+			with dislock:
+				item = self.delete_item(item)
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		if not item:
 			self.send_error(404)
 			return
@@ -215,7 +217,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.end_headers()
 
 	def do_POST(self):
-		item = self.prefetch()
+		urlpath = self.urlpath()
+		if urlpath is None:
+			self.send_error(400)
+			return
+		item = disroot.get_node(urlpath)
 		if item.is_root():
 			with dislock:
 				item = self.oldest_item()
@@ -253,7 +259,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		self.end_headers()
 
 	def do_PUT(self):
-		item = self.prefetch()
+		urlpath = self.urlpath()
+		if urlpath is None:
+			self.send_error(400)
+			return
+		item = disroot.get_node(urlpath)
 		if item.is_root():
 			self.send_response(405)
 			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
