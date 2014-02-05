@@ -121,6 +121,18 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
 
+	def receive_file(self, lease):
+		self.reclaim(lease)
+		while lease.bytes:
+			chunk = self.rfile.read(min(lease.bytes, 2**15))
+			if not chunk:
+				break
+			lease.write(chunk)
+			if lease.size != 0 and not lease.bytes:
+				with dislock:
+					lease.renew()
+				self.reclaim(lease)
+
 	def delete_item(self, item):	# with lock
 		assert not item.is_root()
 		if os.path.exists(item.path) and not os.path.isfile(item.path):
@@ -147,6 +159,12 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return None
 		item = disroot.oldest_node()
 		return self.touch_item(item)
+
+	def put_lease(self, lease):	# with lock
+		try:
+			lease.close()
+		except Exception as err:
+			self.log_message("put_lease() error: %s", repr(err))
 
 	def get_lease_common(self, item):	# with lock
 		if os.path.exists(item.path) and not os.path.isfile(item.path):
@@ -199,7 +217,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			# delete failed, item busy
 			self.send_error(409)
 			return
-		os.remove(item.path)
+		try:
+			os.remove(item.path)
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		r = item.rootnode.path
 		n = os.path.dirname(item.itemname)
 		while n:
@@ -217,31 +239,34 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		item = disroot.get_node(urlpath)
 		if item.is_root():
-			with dislock:
-				item = self.oldest_item()
+			try:
+				with dislock:
+					item = self.oldest_item()
+			except Exception as err:
+				self.send_error(500, repr(err))
+				return
 			if not item or item.is_busy():
 				self.send_error(204)
 				return
 			self.respond_location("/%s" % item.itemname)
 			return
-		with dislock:
-			lease = self.get_lease_append(item)
+		try:
+			with dislock:
+				lease = self.get_lease_append(item)
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		if not lease:
 			self.send_error(409)
 			return
-		self.reclaim(lease)
-		while lease.bytes:
-			chunk = self.rfile.read(min(lease.bytes, 2**15))
-			if not chunk:
-				break
-			lease.write(chunk)
-			if lease.size != 0 and not lease.bytes:
-				with dislock:
-					lease.renew()
-				self.reclaim(lease)
+		try:
+			self.receive_file(lease)
+		except Exception as err:
+			self.send_error(500, repr(err))
+		else:
+			self.respond_success()
 		with dislock:
-			lease.close()
-		self.respond_success()
+			self.put_lease(lease)
 
 	def do_PUT(self):
 		urlpath = self.urlpath()
@@ -252,24 +277,23 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if item.is_root():
 			self.respond_badmethod()
 			return
-		with dislock:
-			lease = self.get_lease_truncate(item)
+		try:
+			with dislock:
+				lease = self.get_lease_truncate(item)
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
 		if not lease:
 			self.send_error(409)
 			return
-		self.reclaim(lease)
-		while lease.bytes:
-			chunk = self.rfile.read(min(lease.bytes, 2**15))
-			if not chunk:
-				break
-			lease.write(chunk)
-			if lease.size != 0 and not lease.bytes:
-				with dislock:
-					lease.renew()
-				self.reclaim(lease)
+		try:
+			self.receive_file(lease)
+		except Exception as err:
+			self.send_error(500, repr(err))
+		else:
+			self.respond_success()
 		with dislock:
-			lease.close()
-		self.respond_success()
+			self.put_lease(lease)
 
 	def do_GET(self):
 		urlpath = self.urlpath()
