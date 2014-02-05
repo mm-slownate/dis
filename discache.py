@@ -94,6 +94,16 @@ def mkdir_p_recursive(rootdir, itemdir):
 		os.mkdir(path)
 
 
+def rmdir_p_iterative(rootdir, name):
+	name = os.path.dirname(name)
+	while name:
+		try:
+			os.rmdir('/'.join([rootdir, name]))
+		except:
+			break
+		name = os.path.dirname(name)
+
+
 def sanitize(path):
 	cleanpath = []
 	for c in path.split('/'):
@@ -222,15 +232,20 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
-		r = item.rootnode.path
-		n = os.path.dirname(item.itemname)
-		while n:
-			try:
-				os.rmdir('/'.join([r, n]))
-			except:
-				break
-			n = os.path.dirname(n)
 		self.respond_success()
+		rmdir_p_iterative(item.rootnode.path, item.itemname)
+
+	def do_post_root(self):
+		try:
+			with dislock:
+				item = self.oldest_item()
+		except Exception as err:
+			self.send_error(500, repr(err))
+			return
+		if not item or item.is_busy():
+			self.send_error(204)
+			return
+		self.respond_location("/%s" % item.itemname)
 
 	def do_POST(self):
 		urlpath = self.urlpath()
@@ -239,16 +254,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		item = disroot.get_node(urlpath)
 		if item.is_root():
-			try:
-				with dislock:
-					item = self.oldest_item()
-			except Exception as err:
-				self.send_error(500, repr(err))
-				return
-			if not item or item.is_busy():
-				self.send_error(204)
-				return
-			self.respond_location("/%s" % item.itemname)
+			self.do_post_root()
 			return
 		try:
 			with dislock:
