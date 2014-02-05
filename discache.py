@@ -184,9 +184,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		item = disroot.get_node(urlpath)
 		if item.is_root():
-			self.send_response(405)
-			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
-			self.end_headers()
+			self.respond_badmethod()
 			return
 		try:
 			with dislock:
@@ -210,11 +208,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			except:
 				break
 			n = os.path.dirname(n)
-		self.send_response(200)
-		self.send_header("Content-Length", 0)
-		if "Origin" in self.headers:
-			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
-		self.end_headers()
+		self.respond_success()
 
 	def do_POST(self):
 		urlpath = self.urlpath()
@@ -228,12 +222,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			if not item or item.is_busy():
 				self.send_error(204)
 				return
-			self.send_response(200)
-			self.send_header("Content-Length", 0)
-			self.send_header("Location", "/%s" % item.itemname)
-			if "Origin" in self.headers:
-				self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
-			self.end_headers()
+			self.respond_location("/%s" % item.itemname)
 			return
 		with dislock:
 			lease = self.get_lease_append(item)
@@ -252,11 +241,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				self.reclaim(lease)
 		with dislock:
 			lease.close()
-		self.send_response(200)
-		self.send_header("Content-Length", 0)
-		if "Origin" in self.headers:
-			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
-		self.end_headers()
+		self.respond_success()
 
 	def do_PUT(self):
 		urlpath = self.urlpath()
@@ -265,9 +250,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		item = disroot.get_node(urlpath)
 		if item.is_root():
-			self.send_response(405)
-			self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
-			self.end_headers()
+			self.respond_badmethod()
 			return
 		with dislock:
 			lease = self.get_lease_truncate(item)
@@ -286,11 +269,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				self.reclaim(lease)
 		with dislock:
 			lease.close()
-		self.send_response(200)
-		self.send_header("Content-Length", 0)
-		if "Origin" in self.headers:
-			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
-		self.end_headers()
+		self.respond_success()
 
 	def do_GET(self):
 		urlpath = self.urlpath()
@@ -315,19 +294,9 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
-		self.send_response(200)
-		self.send_header("Content-Length", os.path.getsize(f.name))
-		self.send_header("Last-Modified", utils.formatdate(os.stat(f.name).st_mtime, usegmt=True))
-		if "Origin" in self.headers:
-			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
-		self.end_headers()
-		try:
-			buf = 'not used'
-			while buf:
-				buf = f.read(4096)
-				self.wfile.write(buf)
-		finally:
-			f.close()
+		self.respond_success(str(os.path.getsize(f.name)), os.stat(f.name).st_mtime)
+		self.respond_filedata(f)
+		f.close()
 
 	def do_HEAD(self):
 		urlpath = self.urlpath()
@@ -347,27 +316,84 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if not item:
 			self.send_error(404)
 			return
-		self.send_response(200)
-		self.send_header("Content-Length", os.path.getsize(item.path))
-		self.send_header("Last-Modified", utils.formatdate(os.stat(item.path).st_mtime, usegmt=True))
-		if "Origin" in self.headers:
-			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
-		self.end_headers()
+		self.respond_success(str(os.path.getsize(item.path)), os.stat(item.path).st_mtime)
 
 	def do_OPTIONS(self):
+		self.respond_options()
+
+	def send_options(self):
 		self.send_response(200)
 		self.send_header("Allow", "OPTIONS, HEAD, GET, PUT, POST, DELETE")
 		self.send_header("Content-Length", '0')
-		if "Origin" in self.headers:
+		if hasattr(self, 'headers') and "Origin" in self.headers:
 			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
 			self.send_header("Access-Control-Allow-Methods", "OPTIONS, HEAD, GET, PUT, POST, DELETE")
 			if "Access-Control-Request-Headers" in self.headers:
 				self.send_header("Access-Control-Allow-Headers", self.headers["Access-Control-Request-Headers"])
 		self.end_headers()
 
+	def send_success(self, lenstr, unixtime=0):
+		self.send_response(200)
+		self.send_header("Content-Length", lenstr)
+		if unixtime:
+			self.send_header("Last-Modified", utils.formatdate(unixtime, usegmt=True))
+		if hasattr(self, 'headers') and "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
+		self.end_headers()
+
+	def send_location(self, location):
+		self.send_response(200)
+		self.send_header("Content-Length", '0')
+		self.send_header("Location", location)
+		if hasattr(self, 'headers') and "Origin" in self.headers:
+			self.send_header("Access-Control-Allow-Origin", self.headers["Origin"])
+		self.end_headers()
+
+	def send_badmethod(self):
+		self.send_response(405)
+		self.send_header("Content-Length", '0')
+		self.send_header("Allow", "OPTIONS, HEAD, GET, POST")
+		self.end_headers()
+
+	def send_filedata(self, fstream):
+		buf = 'not used'
+		while buf:
+			buf = fstream.read(4096)
+			self.wfile.write(buf)
+
+	def respond_options(self):
+		try:
+			self.send_options()
+		except Exception as err:
+			self.log_message("respond_options() error: %s", repr(err))
+
+	def respond_success(self, lenstr='0', unixtime=0):
+		try:
+			self.send_success(lenstr, unixtime)
+		except Exception as err:
+			self.log_message("respond_success() error: %s", repr(err))
+
+	def respond_location(self, location):
+		try:
+			self.send_location(location)
+		except Exception as err:
+			self.log_message("respond_location() error: %s", repr(err))
+
+	def respond_badmethod(self):
+		try:
+			self.send_badmethod()
+		except Exception as err:
+			self.log_message("respond_badmethod() error: %s", repr(err))
+
+	def respond_filedata(self, fstream):
+		try:
+			self.send_filedata(fstream)
+		except Exception as err:
+			self.log_message("respond_filedata() error: %s", repr(err))
+
 	def log_message(self, format, *args):
 		who = str(self.client_address[0])
-		if "X-Forwarded-For" in self.headers:
+		if hasattr(self, 'headers') and "X-Forwarded-For" in self.headers:
 			who = self.headers["X-Forwarded-For"]
 		log_fd.write("%s [%s] %s\n" % (who, self.log_date_time_string(), format % args))
 		log_fd.flush()
