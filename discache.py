@@ -127,6 +127,23 @@ def file_exists_in_cache(item):		# with lock
 	return True
 
 
+def delete_item(item):		# with lock
+	if not file_exists_in_cache(item):
+		return None
+	if not item.is_busy():
+		dis.pop(item)
+		del item.rootnode.items[item.itemname]
+	return item
+
+
+def touch_item(item):		# with lock
+	if not file_exists_in_cache(item):
+		return None
+	dis.pop(item)
+	dis.insert(item)
+	return item
+
+
 class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def urlpath(self):
 		try:
@@ -154,26 +171,11 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 					lease.renew()
 				self.reclaim(lease)
 
-	def delete_item(self, item):	# with lock
-		if not file_exists_in_cache(item):
-			return None
-		if not item.is_busy():
-			dis.pop(item)
-			del disroot.items[item.itemname]
-		return item
-
-	def touch_item(self, item):	# with lock
-		if not file_exists_in_cache(item):
-			return None
-		dis.pop(item)
-		dis.insert(item)
-		return item
-
 	def oldest_item(self):	# with lock
 		if disroot.is_empty():
 			return None
 		item = disroot.oldest_node()
-		return self.touch_item(item)
+		return touch_item(item)
 
 	def put_lease(self, lease):	# with lock
 		try:
@@ -187,7 +189,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if item.is_busy():
 			return None
 		try:
-			mkdir_p_recursive(disroot.path, os.path.dirname(item.itemname))
+			mkdir_p_recursive(item.rootnode.path, os.path.dirname(item.itemname))
 		except:
 			return None
 		try:
@@ -221,7 +223,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = self.delete_item(item)
+				item = delete_item(item)
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
@@ -317,7 +319,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = self.touch_item(item)
+				item = touch_item(item)
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
@@ -344,7 +346,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = self.touch_item(item)
+				item = touch_item(item)
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
