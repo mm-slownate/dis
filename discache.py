@@ -116,6 +116,17 @@ def sanitize(path):
 	return '/'.join(cleanpath)
 
 
+def file_exists_in_cache(item):		# with lock
+	assert not item.is_root()
+	if not os.path.exists(item.path):
+		return False
+	if not os.path.isfile(item.path):
+		return False
+	if item.is_empty():
+		return False
+	return True
+
+
 class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def urlpath(self):
 		try:
@@ -144,10 +155,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				self.reclaim(lease)
 
 	def delete_item(self, item):	# with lock
-		assert not item.is_root()
-		if os.path.exists(item.path) and not os.path.isfile(item.path):
-			return None
-		if item.is_empty():
+		if not file_exists_in_cache(item):
 			return None
 		if not item.is_busy():
 			dis.pop(item)
@@ -155,10 +163,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return item
 
 	def touch_item(self, item):	# with lock
-		assert not item.is_root()
-		if os.path.exists(item.path) and not os.path.isfile(item.path):
-			return None
-		if item.is_empty():
+		if not file_exists_in_cache(item):
 			return None
 		dis.pop(item)
 		dis.insert(item)
