@@ -105,6 +105,34 @@ def insert(item):
 	item.write()
 
 
+def file_exists_in_cache(item):		# with lock
+	assert not item.is_root()
+	if not os.path.exists(item.path):
+		return False
+	if not os.path.isfile(item.path):
+		return False
+	if item.is_empty():
+		return False
+	return True
+
+
+def delete_item(item):		# with lock
+	if not file_exists_in_cache(item):
+		return None
+	if not item.is_busy():
+		pop(item)
+		del item.rootnode.items[item.itemname]
+	return item
+
+
+def touch_item(item):		# with lock
+	if not file_exists_in_cache(item):
+		return None
+	pop(item)
+	insert(item)
+	return item
+
+
 def do_init(path):
 	root = rootnode(os.path.abspath(path))
 	if not root.is_empty():

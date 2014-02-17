@@ -116,34 +116,6 @@ def sanitize(path):
 	return '/'.join(cleanpath)
 
 
-def file_exists_in_cache(item):		# with lock
-	assert not item.is_root()
-	if not os.path.exists(item.path):
-		return False
-	if not os.path.isfile(item.path):
-		return False
-	if item.is_empty():
-		return False
-	return True
-
-
-def delete_item(item):		# with lock
-	if not file_exists_in_cache(item):
-		return None
-	if not item.is_busy():
-		dis.pop(item)
-		del item.rootnode.items[item.itemname]
-	return item
-
-
-def touch_item(item):		# with lock
-	if not file_exists_in_cache(item):
-		return None
-	dis.pop(item)
-	dis.insert(item)
-	return item
-
-
 class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 	def urlpath(self):
 		try:
@@ -175,7 +147,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if disroot.is_empty():
 			return None
 		item = disroot.oldest_node()
-		return touch_item(item)
+		return dis.touch_item(item)
 
 	def put_lease(self, lease):	# with lock
 		try:
@@ -223,7 +195,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = delete_item(item)
+				item = dis.delete_item(item)
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
@@ -319,7 +291,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = touch_item(item)
+				item = dis.touch_item(item)
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
@@ -346,7 +318,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = touch_item(item)
+				item = dis.touch_item(item)
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
