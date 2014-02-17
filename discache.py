@@ -155,7 +155,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		return cleanpath
 
 	def reclaim(self, lease):
-		if lease.free_list or lease.size:
+		if lease.free_list:
 			self.log_message("%s", ", ".join(lease.log_fields()))
 		lease.reclaim_files()
 
