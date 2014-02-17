@@ -443,7 +443,6 @@ class dis_server(BaseHTTPServer.HTTPServer, SocketServer.ThreadingMixIn):
 		except Exception, err:
 			log_fd.write("Exception %r\n" % err)
 			log_fd.flush()
-			raise
 
 
 if __name__ == "__main__":
