@@ -27,25 +27,19 @@ class node:
 		assert self.is_valid()
 		return (not self.is_empty()) and (self.prev == self.next)
 
-	def is_root(self):
-		return self.rootnode is self
-
-	def is_busy(self):
-		return self in self.rootnode.leases
-
 	def get_prev(self):
 		prev = self.prev
 		if prev in self.rootnode.items:
 			return self.rootnode.items[prev]
 		assert prev
-		return node(self.rootnode, prev)
+		return item(self.rootnode, prev)
 
 	def get_next(self):
 		next = self.next
 		if next in self.rootnode.items:
 			return self.rootnode.items[next]
 		assert next
-		return node(self.rootnode, next)
+		return item(self.rootnode, next)
 
 	def __read(self):
 		raw = xattr.getxattr(self.path, "user.dis")
@@ -70,13 +64,27 @@ class rootnode(node):
 		self.leases = []
 		node.__init__(self, self, '')
 
+	def is_root(self):
+		return True
+
 	def get_node(self, itemname):
 		if itemname in self.items:
 			return self.items[itemname]
-		return node(self, itemname)
+		return item(self, itemname)
 
 	def oldest_node(self):
 		return self.get_node(self.prev)
+
+
+class item(node):
+	def __init__(self, rootnode, itemname):
+		node.__init__(self, rootnode, itemname)
+
+	def is_root(self):
+		return False
+
+	def is_busy(self):
+		return self in self.rootnode.leases
 
 
 def pop(item):
