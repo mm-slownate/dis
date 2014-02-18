@@ -6,14 +6,13 @@ class node:
 	def __init__(self, rootnode, itemname):
 		self.rootnode = rootnode
 		self.itemname = itemname
-		self.prev = self.next = itemname
-		if rootnode is not self:
+		if itemname:
 			self.path = '/'.join([rootnode.path, itemname])
-		assert not itemname in rootnode.items
 		try:
 			self.__read()
 		except:
-			pass
+			self.prev = self.next = itemname
+		assert not itemname in rootnode.items
 		rootnode.items[itemname] = self
 
 	def is_valid(self):
@@ -23,23 +22,11 @@ class node:
 		assert self.is_valid()
 		return (self.prev == self.itemname)
 
-	def is_pair(self):
-		assert self.is_valid()
-		return (not self.is_empty()) and (self.prev == self.next)
-
 	def get_prev(self):
-		prev = self.prev
-		if prev in self.rootnode.items:
-			return self.rootnode.items[prev]
-		assert prev
-		return item(self.rootnode, prev)
+		return self.rootnode.get_node(self.prev)
 
 	def get_next(self):
-		next = self.next
-		if next in self.rootnode.items:
-			return self.rootnode.items[next]
-		assert next
-		return item(self.rootnode, next)
+		return self.rootnode.get_node(self.next)
 
 	def __read(self):
 		raw = xattr.getxattr(self.path, "user.dis")
@@ -73,7 +60,7 @@ class rootnode(node):
 		return item(self, itemname)
 
 	def oldest_node(self):
-		return self.get_node(self.prev)
+		return self.get_prev()
 
 
 class item(node):
