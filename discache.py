@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 import BaseHTTPServer
 import SocketServer
 import urllib
@@ -412,8 +413,8 @@ class dis_server(BaseHTTPServer.HTTPServer, SocketServer.ThreadingMixIn):
 	def process_request(self, *args):
 		try:
 			BaseHTTPServer.HTTPServer.process_request(self, *args)
-		except Exception, err:
-			log_fd.write("Exception %r\n" % err)
+		except Exception:
+			log_fd.write(traceback.format_exc())
 			log_fd.flush()
 
 
