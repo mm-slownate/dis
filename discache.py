@@ -22,6 +22,7 @@ class write_lease:
 		self.expires = ''
 		self.free_list = []
 
+		assert not item.is_root()
 		assert not item.is_busy()
 		item.rootnode.leases.append(item)
 
