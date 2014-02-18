@@ -12,8 +12,6 @@ class node:
 			self.__read()
 		except:
 			self.prev = self.next = itemname
-		assert not itemname in rootnode.items
-		rootnode.items[itemname] = self
 
 	def is_valid(self):
 		return not ((self.prev == self.itemname) ^ (self.next == self.itemname))
@@ -47,7 +45,7 @@ class node:
 class rootnode(node):
 	def __init__(self, path):
 		self.path = path
-		self.items = {}
+		self.items = {'': self}
 		self.leases = []
 		node.__init__(self, self, '')
 
@@ -55,9 +53,10 @@ class rootnode(node):
 		return True
 
 	def get_node(self, itemname):
-		if itemname in self.items:
-			return self.items[itemname]
-		return item(self, itemname)
+		if itemname not in self.items:
+			assert itemname
+			self.items[itemname] = item(self, itemname)
+		return self.items[itemname]
 
 	def oldest_node(self):
 		return self.get_prev()
