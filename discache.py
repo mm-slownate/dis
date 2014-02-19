@@ -24,7 +24,7 @@ class write_lease:
 
 		assert not item.is_root()
 		assert not item.is_busy()
-		item.rootnode.leases.append(item)
+		item.take_lease()
 
 	def reserve(self):
 		fsstat = os.statvfs(self.item.rootnode.path)
@@ -84,7 +84,7 @@ class write_lease:
 		assert self.item.is_busy()
 		self.fd.close()
 		self.fd = None
-		self.item.rootnode.leases.remove(self.item)
+		self.item.drop_lease()
 
 
 def mkdir_p_recursive(rootdir, itemdir):
@@ -442,7 +442,7 @@ if __name__ == "__main__":
 	log_fd = open(os.path.join(disk, "%s-%d.log" % (t, port)), 'a')
 
 	global disroot
-	disroot = dis.rootnode(os.path.abspath(sys.argv[2]))
+	disroot = dis.rootitem(os.path.abspath(sys.argv[2]))
 	if disroot.is_empty():
 		disroot.write()
 

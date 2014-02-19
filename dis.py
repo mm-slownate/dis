@@ -3,11 +3,11 @@ import sys
 import xattr
 
 class node:
-	def __init__(self, rootnode, itemname):
-		self.rootnode = rootnode
+	def __init__(self, path, itemname=''):
+		self.path = path
 		self.itemname = itemname
 		if itemname:
-			self.path = '/'.join([rootnode.path, itemname])
+			self.path = '/'.join([path, itemname])
 		try:
 			self.__read()
 		except:
@@ -19,12 +19,6 @@ class node:
 	def is_empty(self):
 		assert self.is_valid()
 		return (self.prev == self.itemname)
-
-	def get_prev(self):
-		return self.rootnode.get_node(self.prev)
-
-	def get_next(self):
-		return self.rootnode.get_node(self.next)
 
 	def __read(self):
 		raw = xattr.getxattr(self.path, "user.dis")
@@ -42,12 +36,11 @@ class node:
 		xattr.setxattr(self.path, "user.dis", out)
 
 
-class rootnode(node):
+class rootitem(node):
 	def __init__(self, path):
-		self.path = path
+		node.__init__(self, path)
 		self.items = {'': self}
 		self.leases = []
-		node.__init__(self, self, '')
 
 	def is_root(self):
 		return True
@@ -58,19 +51,42 @@ class rootnode(node):
 			self.items[itemname] = item(self, itemname)
 		return self.items[itemname]
 
+	def get_prev(self):
+		if self.is_empty():
+			return None
+		return self.get_node(self.prev)
+
+	def get_next(self):
+		if self.is_empty():
+			return None
+		return self.get_node(self.next)
+
 	def oldest_node(self):
 		return self.get_prev()
 
 
 class item(node):
 	def __init__(self, rootnode, itemname):
-		node.__init__(self, rootnode, itemname)
+		node.__init__(self, rootnode.path, itemname)
+		self.rootnode = rootnode
 
 	def is_root(self):
 		return False
 
 	def is_busy(self):
 		return self in self.rootnode.leases
+
+	def take_lease(self):
+		self.rootnode.leases.append(self)
+
+	def drop_lease(self):
+		self.rootnode.leases.remove(self)
+
+	def get_prev(self):
+		return self.rootnode.get_node(self.prev)
+
+	def get_next(self):
+		return self.rootnode.get_node(self.next)
 
 
 def pop(item):
@@ -128,7 +144,7 @@ def touch_item(item):		# with lock
 
 
 def do_init(path):
-	root = rootnode(os.path.abspath(path))
+	root = rootitem(os.path.abspath(path))
 	if not root.is_empty():
 		print "smashing current pointers [%s : %s]" % (root.prev, root.next)
 	print "init dis %s" % root.path
@@ -146,7 +162,7 @@ if __name__ == "__main__":
 			sys.exit()
 		do_init(sys.argv[2])
 		sys.exit()
-	root = rootnode(os.path.abspath(sys.argv[1]))
+	root = rootitem(os.path.abspath(sys.argv[1]))
 	if root.is_empty():
 		print "no files"
 		sys.exit()

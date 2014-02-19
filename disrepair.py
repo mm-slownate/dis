@@ -8,7 +8,7 @@ if __name__ == "__main__":
 		print "disrepair.py rootpath [insert|pop|touch] itemname"
 		sys.exit()
 	rootpath, cmd, itemname = sys.argv[1:]
-	root = dis.rootnode(os.path.abspath(rootpath))
+	root = dis.rootitem(os.path.abspath(rootpath))
 	item = root.get_node(itemname)
 	if cmd == "pop":
 		dis.pop(item)
