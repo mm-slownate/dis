@@ -11,14 +11,14 @@ if __name__ == "__main__":
 	root = dis.rootitem(os.path.abspath(rootpath))
 	item = root.get_node(itemname)
 	if cmd == "pop":
-		dis.pop(item)
+		item.pop()
 	if cmd == "insert":
 		if not item.is_empty():
 			print "smashing current pointers [%s : %s]" % (item.prev, item.next)
 		item.prev = item.next = item.itemname
-		dis.insert(item)
+		item.insert()
 	if cmd == "touch":
-		dis.pop(item)
-		dis.insert(item)
+		item.pop()
+		item.insert()
 
 

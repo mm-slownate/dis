@@ -88,59 +88,54 @@ class item(node):
 	def get_next(self):
 		return self.rootnode.get_node(self.next)
 
+	def pop(self):
+		assert not self.is_empty()
 
-def pop(item):
-	assert not item.is_empty()
+		p, n = self.get_prev(), self.get_next()
+		p.next = n.itemname
+		n.prev = p.itemname
+		p.write()
+		n.write()
 
-	p, n = item.get_prev(), item.get_next()
-	p.next = n.itemname
-	n.prev = p.itemname
-	p.write()
-	n.write()
+		self.prev = self.next = self.itemname
+		self.write()
 
-	item.prev = item.next = item.itemname
-	item.write()
+	def insert(self):
+		assert self.is_empty()
 
+		p, n = self.rootnode, self.rootnode.get_next()
+		p.next = n.prev = self.itemname
+		n.write()
+		p.write()
 
-def insert(item):
-	assert item.is_empty()
+		self.prev = p.itemname
+		self.next = n.itemname
+		self.write()
 
-	p, n = item.rootnode, item.rootnode.get_next()
-	p.next = n.prev = item.itemname
-	n.write()
-	p.write()
+	def file_exists_in_cache(self):
+		assert not self.is_root()
+		if not os.path.exists(self.path):
+			return False
+		if not os.path.isfile(self.path):
+			return False
+		if self.is_empty():
+			return False
+		return True
 
-	item.prev = p.itemname
-	item.next = n.itemname
-	item.write()
+	def delete(self):
+		if not self.file_exists_in_cache():
+			return None
+		if not self.is_busy():
+			self.pop()
+			del self.rootnode.items[self.itemname]
+		return self
 
-
-def file_exists_in_cache(item):		# with lock
-	assert not item.is_root()
-	if not os.path.exists(item.path):
-		return False
-	if not os.path.isfile(item.path):
-		return False
-	if item.is_empty():
-		return False
-	return True
-
-
-def delete_item(item):		# with lock
-	if not file_exists_in_cache(item):
-		return None
-	if not item.is_busy():
-		pop(item)
-		del item.rootnode.items[item.itemname]
-	return item
-
-
-def touch_item(item):		# with lock
-	if not file_exists_in_cache(item):
-		return None
-	pop(item)
-	insert(item)
-	return item
+	def touch(self):
+		if not self.file_exists_in_cache():
+			return None
+		self.pop()
+		self.insert()
+		return self
 
 
 def do_init(path):

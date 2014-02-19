@@ -38,8 +38,8 @@ class write_lease:
 		assert self.bytes == 0
 
 		if not self.item.is_empty():
-			dis.pop(self.item)
-		dis.insert(self.item)
+			self.item.pop()
+		self.item.insert()
 		self.bytes = 2**18
 		if not self.size is None:
 			if self.size < self.bytes:
@@ -56,7 +56,7 @@ class write_lease:
 			if item in r.leases:
 				break
 			assert not item.is_empty()
-			dis.pop(item)
+			item.pop()
 			del r.items[item.itemname]
 			self.free_list.append(item)
 			freed += os.path.getsize(item.path)
@@ -149,7 +149,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 		if disroot.is_empty():
 			return None
 		item = disroot.oldest_node()
-		return dis.touch_item(item)
+		return item.touch()
 
 	def put_lease(self, lease):	# with lock
 		try:
@@ -197,7 +197,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = dis.delete_item(item)
+				item = item.delete()
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
@@ -293,7 +293,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = dis.touch_item(item)
+				item = item.touch()
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
@@ -320,7 +320,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			return
 		try:
 			with dislock:
-				item = dis.touch_item(item)
+				item = item.touch()
 		except Exception as err:
 			self.send_error(500, repr(err))
 			return
