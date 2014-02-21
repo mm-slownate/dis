@@ -67,6 +67,17 @@ class rootitem(node):
 	def oldest_node(self):
 		return self.get_prev()
 
+	def expire_files(self, freebytes):
+		freed = 0
+		while freed < freebytes:
+			item = self.oldest_node()
+			if item.is_busy():
+				raise StopIteration
+			item.pop()
+			self.forget_node(item)
+			yield item
+			freed += os.path.getsize(item.path)
+
 
 class item(node):
 	def __init__(self, rootnode, itemname):
@@ -145,6 +156,11 @@ class item(node):
 		self.pop()
 		self.insert()
 		return self
+
+	def create_or_touch(self):
+		if not self.is_empty():
+			self.pop()
+		self.insert()
 
 
 def do_init(path):

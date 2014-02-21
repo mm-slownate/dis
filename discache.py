@@ -36,29 +36,15 @@ class write_lease:
 		assert self.item.is_busy()
 		assert self.bytes == 0
 
-		if not self.item.is_empty():
-			self.item.pop()
-		self.item.insert()
+		self.item.create_or_touch()
 		self.bytes = 2**18
 		if not self.size is None:
-			if self.size < self.bytes:
-				self.bytes = self.size
+			self.bytes = min(self.bytes, self.size)
 			self.size -= self.bytes
 		self.fd.flush()
-		if self.reserve() > disreserve:
-			return
-
-		r = self.item.rootnode
-		freed = 0
-		while freed < self.bytes:
-			item = r.get_prev()
-			if item in r.leases:
-				break
-			assert not item.is_empty()
-			item.pop()
-			del r.items[item.itemname]
-			self.free_list.append(item)
-			freed += os.path.getsize(item.path)
+		if self.reserve() < disreserve:
+			files = self.item.rootnode.expire_files(self.bytes)
+			self.free_list.extend(files)
 
 	def log_fields(self):
 		yield "%d byte lease" % self.bytes
