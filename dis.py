@@ -45,6 +45,9 @@ class rootitem(node):
 	def is_root(self):
 		return True
 
+	def forget_node(self, item):
+		del self.items[item.itemname]
+
 	def get_node(self, itemname):
 		if itemname not in self.items:
 			assert itemname
@@ -121,12 +124,19 @@ class item(node):
 			return False
 		return True
 
+	def ready_to_lease(self):
+		if self.is_busy():
+			return False
+		if os.path.exists(self.path) and not os.path.isfile(self.path):
+			return False
+		return True
+
 	def delete(self):
 		if not self.file_exists_in_cache():
 			return None
 		if not self.is_busy():
 			self.pop()
-			del self.rootnode.items[self.itemname]
+			self.rootnode.forget_node(self)
 		return self
 
 	def touch(self):

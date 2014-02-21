@@ -156,9 +156,7 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 			self.log_message("put_lease() error: %s", repr(err))
 
 	def get_lease_common(self, item):	# with lock
-		if os.path.exists(item.path) and not os.path.isfile(item.path):
-			return None
-		if item.is_busy():
+		if not item.ready_to_lease():
 			return None
 		try:
 			mkdir_p_recursive(item.rootnode.path, os.path.dirname(item.itemname))
