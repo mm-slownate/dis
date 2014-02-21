@@ -19,7 +19,6 @@ class write_lease:
 
 		self.fd = None
 		self.bytes = 0
-		self.expires = ''
 		self.free_list = []
 
 		assert not item.is_root()
@@ -74,6 +73,7 @@ class write_lease:
 	def reclaim_files(self):
 		for item in self.free_list:
 			os.remove(item.path)
+			rmdir_p_iterative(item.rootnode.path, item.itemname)
 		self.free_list = []
 
 	def write(self, chunk):
@@ -146,8 +146,6 @@ class dis_handler(BaseHTTPServer.BaseHTTPRequestHandler):
 				self.reclaim(lease)
 
 	def oldest_item(self):	# with lock
-		if disroot.is_empty():
-			return None
 		item = disroot.oldest_node()
 		return item.touch()
 

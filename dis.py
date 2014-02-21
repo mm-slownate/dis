@@ -89,7 +89,7 @@ class item(node):
 		return self.rootnode.get_node(self.next)
 
 	def pop(self):
-		assert not self.is_empty()
+		assert self.file_exists_in_cache()
 
 		p, n = self.get_prev(), self.get_next()
 		p.next = n.itemname
@@ -113,7 +113,6 @@ class item(node):
 		self.write()
 
 	def file_exists_in_cache(self):
-		assert not self.is_root()
 		if not os.path.exists(self.path):
 			return False
 		if not os.path.isfile(self.path):
